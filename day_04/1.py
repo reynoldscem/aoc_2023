@@ -24,8 +24,6 @@ class Card:
         else:
             score = 0
 
-        # print(score)
-
         return score
 
     @staticmethod
