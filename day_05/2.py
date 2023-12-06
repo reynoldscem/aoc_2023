@@ -1,5 +1,4 @@
 from pathlib import Path
-from tqdm import tqdm
 import re
 
 
@@ -26,24 +25,23 @@ class RangeMap:
         map_object = cls()
         lines = string.splitlines()
         for line in lines[1:]:
-            numbers = list(map(int, re.findall('\d+', line)))
+            numbers = list(map(int, re.findall(r'\d+', line)))
             map_object.add_range_pair(*numbers)
 
         return map_object
 
-def pairwise(iterable):
-    from itertools import tee
-    a, b = tee(iterable)
-    next(b, None)
-    return zip(a, b)
-
 
 def get_all_seeds(seed_numbers):
-    seeds = []
     for base, length in zip(seed_numbers[::2], seed_numbers[1::2]):
-        seeds += list(range(base, base + length))
+        yield range(base, base + length)
 
-    return seeds
+
+def map_seed(maps, seed):
+    value = seed
+    for this_map in maps:
+        value = this_map[value]
+
+    return value
 
 
 def main():
@@ -55,21 +53,22 @@ def main():
     seeds_section, *map_sections = input_sections
 
     seed_numbers = list(map(int, re.findall(r'\d+', seeds_section)))
-    seeds = list(set(get_all_seeds(seed_numbers)))
-    print(seeds)
-    print(len(seeds))
+    from itertools import chain
+    seeds = chain.from_iterable(get_all_seeds(seed_numbers))
     maps = [
         RangeMap.make_from_string(map_string)
         for map_string in map_sections
     ]
-    mapped_seeds = []
-    for seed in tqdm(seeds):
-        value = seed
-        for this_map in maps:
-            value = this_map[value]
-        mapped_seeds.append(value)
-    print(min(mapped_seeds))
+    print('Start work!')
+    from joblib import Parallel, delayed
+    mapped_seeds = Parallel(
+        n_jobs=11, return_as='generator', verbose=50
+    )(
+        delayed(map_seed)(maps, seed)
+        for seed in seeds
+    )
 
+    print(min(mapped_seeds))
 
 
 if __name__ == '__main__':
